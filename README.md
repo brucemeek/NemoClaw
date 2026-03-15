@@ -5,11 +5,17 @@ Run OpenClaw inside an OpenShell sandbox with NVIDIA inference (Nemotron 3 Super
 ## Quick Start
 
 ```bash
-npm install -g nemoclaw
+# After npm publish (coming soon):
+# npm install -g nemoclaw
+
+# Pre-publish: install from git
+git clone https://github.com/NVIDIA/openshell-openclaw-plugin.git
+cd openshell-openclaw-plugin
+npm install -g .
 nemoclaw setup
 ```
 
-That's it. First run prompts for your NVIDIA API Key (get one from [build.nvidia.com](https://build.nvidia.com)) and saves it to `~/.nemoclaw/credentials.json`.
+First run prompts for your NVIDIA API Key (get one from [build.nvidia.com](https://build.nvidia.com)) and saves it to `~/.nemoclaw/credentials.json`.
 
 ### Prerequisites
 
@@ -30,7 +36,9 @@ sudo usermod -aG docker $USER
 newgrp docker
 
 # OpenShell CLI
-pip install 'openshell @ git+https://github.com/NVIDIA/OpenShell.git'
+sudo apt-get install -y python3-pip pipx
+pipx install 'openshell @ git+https://github.com/NVIDIA/OpenShell.git'
+pipx ensurepath && source ~/.bashrc
 
 # NVIDIA Container Toolkit (if you have a GPU)
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
@@ -41,8 +49,10 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker
 sudo systemctl restart docker
 
-# NemoClaw
-npm install -g nemoclaw
+# NemoClaw (pre-publish: install from git)
+git clone https://github.com/NVIDIA/openshell-openclaw-plugin.git
+cd openshell-openclaw-plugin
+npm install -g .
 nemoclaw setup
 ```
 
@@ -52,7 +62,11 @@ nemoclaw setup
 brew install colima docker node
 colima start
 pip install 'openshell @ git+https://github.com/NVIDIA/OpenShell.git'
-npm install -g nemoclaw
+
+# NemoClaw (pre-publish: install from git)
+git clone https://github.com/NVIDIA/openshell-openclaw-plugin.git
+cd openshell-openclaw-plugin
+npm install -g .
 nemoclaw setup
 ```
 
