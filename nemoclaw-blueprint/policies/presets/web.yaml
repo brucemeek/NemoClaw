@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+preset:
+  name: web
+  description: "Broader public web and API access for OpenClaw and common CLI tooling"
+
+network_policies:
+  public_web:
+    name: public_web
+    endpoints:
+      - host: "**.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.org"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.net"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.io"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.dev"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.ai"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.sh"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.app"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.cloud"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+      - host: "**.co"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        access: read-write
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/git }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/local/bin/npm }
+      - { path: /usr/bin/python3 }

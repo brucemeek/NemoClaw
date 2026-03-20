@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+preset:
+  name: byterover
+  description: "ByteRover service and documentation access"
+
+network_policies:
+  byterover:
+    name: byterover
+    endpoints:
+      - host: byterover.dev
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+          - allow: { method: POST, path: "/**" }
+      - host: docs.byterover.dev
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: byterover-analytics-894842108403.us-central1.run.app
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+      - host: storage.googleapis.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        tls: terminate
+        rules:
+          - allow: { method: GET, path: "/**" }
+    binaries:
+      - { path: /usr/local/bin/openclaw }
+      - { path: /usr/bin/curl }
+      - { path: /usr/bin/git }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/local/bin/npm }
+      - { path: /usr/bin/python3 }

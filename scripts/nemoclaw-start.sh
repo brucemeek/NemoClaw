@@ -85,13 +85,24 @@ print_dashboard_urls() {
   token="$(python3 - <<'PYTOKEN'
 import json
 import os
+import time
 path = os.path.expanduser('~/.openclaw/openclaw.json')
-try:
-    cfg = json.load(open(path))
-except Exception:
-    print('')
+
+deadline = time.time() + 10
+while time.time() < deadline:
+    try:
+        cfg = json.load(open(path))
+    except Exception:
+        time.sleep(0.25)
+        continue
+
+    token = cfg.get('gateway', {}).get('auth', {}).get('token', '')
+    if token:
+        print(token)
+        break
+    time.sleep(0.25)
 else:
-    print(cfg.get('gateway', {}).get('auth', {}).get('token', ''))
+    print('')
 PYTOKEN
 )"
 
@@ -105,6 +116,9 @@ PYTOKEN
 
   echo "[gateway] Local UI: ${local_url}"
   echo "[gateway] Remote UI: ${remote_url}"
+    if [ -z "$token" ]; then
+        echo "[gateway] Token not ready yet. If Control UI reports a gateway token mismatch, read ~/.openclaw/openclaw.json inside the sandbox and use gateway.auth.token."
+    fi
 }
 
 start_auto_pair() {

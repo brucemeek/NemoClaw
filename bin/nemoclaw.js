@@ -32,6 +32,33 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
+function toBashPath(filePath) {
+  if (process.platform !== "win32") {
+    return filePath;
+  }
+
+  const normalized = String(filePath).replace(/\\/g, "/");
+  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/);
+  if (!driveMatch) {
+    return normalized;
+  }
+
+  const [, driveLetter, remainder] = driveMatch;
+  return `/mnt/${driveLetter.toLowerCase()}/${remainder}`;
+}
+
+function buildSanitizedBashScriptCommand(scriptPath, args = []) {
+  const bashPath = toBashPath(scriptPath);
+  const forwardedArgs = args.map((arg) => shellQuote(arg)).join(" ");
+  const argSuffix = forwardedArgs ? ` ${forwardedArgs}` : "";
+  // Strip CRLF at execution time so WSL checkouts on /mnt/c don't break bash scripts.
+  return `bash <(tr -d '\\r' < ${shellQuote(bashPath)})${argSuffix}`;
+}
+
+function runLocalBashScript(scriptPath, args = [], opts = {}) {
+  return run(buildSanitizedBashScriptCommand(scriptPath, args), opts);
+}
+
 function resolveUninstallScript() {
   const candidates = [
     path.join(ROOT, "uninstall.sh"),
@@ -83,12 +110,12 @@ async function setup() {
   await ensureApiKey();
   const { defaultSandbox } = registry.listSandboxes();
   const safeName = defaultSandbox && /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(defaultSandbox) ? defaultSandbox : "";
-  run(`bash "${SCRIPTS}/setup.sh" ${safeName}`);
+  runLocalBashScript(path.join(SCRIPTS, "setup.sh"), safeName ? [safeName] : []);
 }
 
 async function setupSpark() {
   await ensureApiKey();
-  run(`sudo -E NVIDIA_API_KEY="${process.env.NVIDIA_API_KEY}" bash "${SCRIPTS}/setup-spark.sh"`);
+  run(`sudo -E NVIDIA_API_KEY=${shellQuote(process.env.NVIDIA_API_KEY)} ${buildSanitizedBashScriptCommand(path.join(SCRIPTS, "setup-spark.sh"))}`);
 }
 
 async function deploy(instanceName) {
@@ -180,19 +207,20 @@ async function start() {
   await ensureApiKey();
   const { defaultSandbox } = registry.listSandboxes();
   const safeName = defaultSandbox && /^[a-zA-Z0-9._-]+$/.test(defaultSandbox) ? defaultSandbox : null;
-  const sandboxEnv = safeName ? `SANDBOX_NAME="${safeName}"` : "";
-  run(`${sandboxEnv} bash "${SCRIPTS}/start-services.sh"`);
+  runLocalBashScript(path.join(SCRIPTS, "start-services.sh"), [], {
+    env: safeName ? { SANDBOX_NAME: safeName } : {},
+  });
 }
 
 function stop() {
-  run(`bash "${SCRIPTS}/start-services.sh" --stop`);
+  runLocalBashScript(path.join(SCRIPTS, "start-services.sh"), ["--stop"]);
 }
 
 function uninstall(args) {
   const localScript = resolveUninstallScript();
   if (localScript) {
     console.log(`  Running local uninstall script: ${localScript}`);
-    const result = spawnSync("bash", [localScript, ...args], {
+    const result = spawnSync("bash", ["-lc", buildSanitizedBashScriptCommand(localScript, args)], {
       stdio: "inherit",
       cwd: ROOT,
       env: process.env,
@@ -228,7 +256,7 @@ function showStatus() {
   }
 
   // Show service status
-  run(`bash "${SCRIPTS}/start-services.sh" --status`);
+  runLocalBashScript(path.join(SCRIPTS, "start-services.sh"), ["--status"]);
 }
 
 function listSandboxes() {

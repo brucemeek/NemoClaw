@@ -1,0 +1,46 @@
+services:
+  nemoclaw-control:
+    build:
+      context: .
+      dockerfile: docker/control-plane.Dockerfile
+    container_name: nemoclaw-control
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    tty: true
+    stdin_open: true
+    environment:
+      HOME: /home/nemoclaw
+      DOCKER_HOST: unix:///var/run/docker.sock
+      NEMOCLAW_HOST_HOME: ${NEMOCLAW_HOST_HOME:-/home/krylo}
+      CHAT_UI_URL: ${CHAT_UI_URL:-http://127.0.0.1:18789}
+      NEMOCLAW_AUTO_ONBOARD: ${NEMOCLAW_AUTO_ONBOARD:-0}
+      NEMOCLAW_NON_INTERACTIVE: ${NEMOCLAW_NON_INTERACTIVE:-0}
+      NEMOCLAW_SANDBOX_NAME: ${NEMOCLAW_SANDBOX_NAME:-my-assistant}
+      NEMOCLAW_PROVIDER: ${NEMOCLAW_PROVIDER:-cloud}
+      NEMOCLAW_MODEL: ${NEMOCLAW_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      NEMOCLAW_POLICY_MODE: ${NEMOCLAW_POLICY_MODE:-suggested}
+      NEMOCLAW_ENSURE_POLICY_PRESETS: ${NEMOCLAW_ENSURE_POLICY_PRESETS:-pypi}
+      NEMOCLAW_REDIRECT_PORT: ${NEMOCLAW_REDIRECT_PORT:-18788}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${NEMOCLAW_HOST_HOME:-/home/krylo}/.nemoclaw:/home/nemoclaw/.nemoclaw
+      - ${NEMOCLAW_HOST_HOME:-/home/krylo}/.openclaw:/home/nemoclaw/.openclaw
+      - ${NEMOCLAW_HOST_HOME:-/home/krylo}/.config/openshell:/home/nemoclaw/.config/openshell
+      - ${NEMOCLAW_HOST_HOME:-/home/krylo}/.local/share/openshell:/home/nemoclaw/.local/share/openshell
+
+  dashboard-shortcut:
+    build:
+      context: .
+      dockerfile: docker/dashboard-shortcut.Dockerfile
+    container_name: nemoclaw-dashboard-shortcut
+    restart: unless-stopped
+    environment:
+      DASHBOARD_URL_FILE: /state/.nemoclaw/dashboard-url.txt
+      PORT: ${NEMOCLAW_REDIRECT_PORT:-18788}
+    ports:
+      - 127.0.0.1:${NEMOCLAW_REDIRECT_PORT:-18788}:${NEMOCLAW_REDIRECT_PORT:-18788}
+    volumes:
+      - ${NEMOCLAW_HOST_HOME:-/home/krylo}/.nemoclaw:/state/.nemoclaw:ro

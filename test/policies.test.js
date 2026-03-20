@@ -9,9 +9,9 @@ const policies = require("../bin/lib/policies");
 
 describe("policies", () => {
   describe("listPresets", () => {
-    it("returns all 9 presets", () => {
+    it("returns all 11 presets", () => {
       const presets = policies.listPresets();
-      assert.equal(presets.length, 9);
+      assert.equal(presets.length, 11);
     });
 
     it("each preset has name and description", () => {
@@ -23,7 +23,7 @@ describe("policies", () => {
 
     it("returns expected preset names", () => {
       const names = policies.listPresets().map((p) => p.name).sort();
-      const expected = ["discord", "docker", "huggingface", "jira", "npm", "outlook", "pypi", "slack", "telegram"];
+      const expected = ["byterover", "discord", "docker", "huggingface", "jira", "npm", "outlook", "pypi", "slack", "telegram", "web"];
       assert.deepEqual(names, expected);
     });
   });
@@ -37,6 +37,22 @@ describe("policies", () => {
 
     it("returns null for nonexistent preset", () => {
       assert.equal(policies.loadPreset("nonexistent"), null);
+    });
+  });
+
+  describe("extractPresetEntries", () => {
+    it("extracts entries from LF content", () => {
+      const content = policies.loadPreset("pypi");
+      const entries = policies.extractPresetEntries(content);
+      assert.ok(entries);
+      assert.match(entries, /host: pypi\.org/);
+    });
+
+    it("extracts entries from CRLF content", () => {
+      const content = policies.loadPreset("pypi").replace(/\r?\n/g, "\r\n");
+      const entries = policies.extractPresetEntries(content);
+      assert.ok(entries);
+      assert.match(entries, /host: pypi\.org/);
     });
   });
 
@@ -54,6 +70,34 @@ describe("policies", () => {
       const content = policies.loadPreset("telegram");
       const hosts = policies.getPresetEndpoints(content);
       assert.deepEqual(hosts, ["api.telegram.org"]);
+    });
+
+    it("extracts hosts from byterover preset", () => {
+      const content = policies.loadPreset("byterover");
+      const hosts = policies.getPresetEndpoints(content);
+      assert.deepEqual(hosts, [
+        "byterover.dev",
+        "docs.byterover.dev",
+        "byterover-analytics-894842108403.us-central1.run.app",
+        "storage.googleapis.com",
+      ]);
+    });
+
+    it("extracts hosts from web preset", () => {
+      const content = policies.loadPreset("web");
+      const hosts = policies.getPresetEndpoints(content);
+      assert.deepEqual(hosts, [
+        "**.com",
+        "**.org",
+        "**.net",
+        "**.io",
+        "**.dev",
+        "**.ai",
+        "**.sh",
+        "**.app",
+        "**.cloud",
+        "**.co",
+      ]);
     });
 
     it("every preset has at least one endpoint", () => {
@@ -112,6 +156,13 @@ describe("policies", () => {
       for (const p of policies.listPresets()) {
         const content = policies.loadPreset(p.name);
         assert.ok(content.includes("network_policies:"), `${p.name} missing network_policies`);
+      }
+    });
+
+    it("web and byterover presets declare binaries", () => {
+      for (const name of ["web", "byterover"]) {
+        const content = policies.loadPreset(name);
+        assert.ok(content.includes("binaries:"), `${name} missing binaries`);
       }
     });
   });

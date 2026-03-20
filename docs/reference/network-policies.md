@@ -140,3 +140,9 @@ Apply policy updates to a running sandbox without restarting:
 ```console
 $ openshell policy set <policy-file>
 ```
+
+For common integrations, prefer a preset over ad hoc edits.
+For example, apply the `byterover` preset with `nemoclaw <name> policy-add` before running the ByteRover installer, because the install flow follows redirects through multiple hosts instead of contacting only `byterover.dev`.
+
+If the agent needs broader public web access, apply the `web` preset instead of weakening the strict baseline policy file.
+The `web` preset is intentionally opt-in and broad enough for common web browsing, downloads, and ordinary API traffic from `openclaw`, `curl`, `git`, `node`, `npm`, and `python3`.

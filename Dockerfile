@@ -37,7 +37,8 @@ RUN mkdir -p /sandbox/.nemoclaw/blueprints/0.1.0 \
 
 # Copy startup script
 COPY scripts/nemoclaw-start.sh /usr/local/bin/nemoclaw-start
-RUN chmod +x /usr/local/bin/nemoclaw-start
+RUN sed -i 's/\r$//' /usr/local/bin/nemoclaw-start \
+    && chmod +x /usr/local/bin/nemoclaw-start
 
 WORKDIR /sandbox
 USER sandbox

@@ -187,6 +187,12 @@ Presets extend the baseline network policy with additional endpoints.
 $ nemoclaw my-assistant policy-add
 ```
 
+For example, apply the `byterover` preset before running the ByteRover installer.
+The preset allows the branded site, docs site, installer redirect host, and the Google Cloud Storage release bucket used by `curl -fsSL https://byterover.dev/install.sh | sh`.
+
+If the agent needs broader public web access, apply the `web` preset instead.
+It is an opt-in relaxed preset for common public domains and common CLI tooling, rather than part of the strict baseline.
+
 ### `nemoclaw <name> policy-list`
 
 List available policy presets and show which ones are applied to the sandbox.

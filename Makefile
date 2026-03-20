@@ -1,4 +1,4 @@
-.PHONY: check lint format lint-ts lint-py format-ts format-py docs docs-strict docs-live docs-clean
+.PHONY: check lint format lint-ts lint-py format-ts format-py docs docs-strict docs-live docs-clean persistent-up persistent-down persistent-logs persistent-status persistent-connect persistent-dashboard-url
 
 check: lint-ts lint-py
 	@echo "All checks passed."
@@ -32,3 +32,23 @@ docs-live:
 
 docs-clean:
 	rm -rf docs/_build
+
+# --- Persistent Control Plane ---
+
+persistent-up:
+	docker compose -f compose.persistent.yaml up -d --build
+
+persistent-down:
+	docker compose -f compose.persistent.yaml down
+
+persistent-logs:
+	docker logs -f nemoclaw-control
+
+persistent-status:
+	docker compose -f compose.persistent.yaml exec nemoclaw-control nemoclaw status
+
+persistent-connect:
+	docker compose -f compose.persistent.yaml exec nemoclaw-control bash -lc 'name=$$(python3 -c "import json; from pathlib import Path; p = Path.home() / \".nemoclaw\" / \"sandboxes.json\"; data = json.loads(p.read_text()); print(data.get(\"defaultSandbox\", \"\"))"); test -n "$$name" && nemoclaw "$$name" connect'
+
+persistent-dashboard-url:
+	@echo http://127.0.0.1:$${NEMOCLAW_REDIRECT_PORT:-18788}/

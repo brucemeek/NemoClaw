@@ -57,6 +57,12 @@ describe("CLI dispatch", () => {
     assert.ok(r.out.includes("No sandboxes"));
   });
 
+  it("status exits 0", () => {
+    const r = run("status");
+    assert.equal(r.code, 0);
+    assert.ok(r.out.includes("telegram-bridge"));
+  });
+
   it("unknown onboard option exits 1", () => {
     const r = run("onboard --non-interactiv");
     assert.equal(r.code, 1);
