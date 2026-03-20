@@ -143,6 +143,53 @@ $ colima status
 
 ## Runtime
 
+### `openclaw update` says `not-git-install`
+
+Older npm-installed OpenClaw builds can report `not-git-install` and skip the in-app update flow.
+That message means OpenClaw was installed from a package manager instead of a git checkout.
+
+For existing NemoClaw sandboxes, the fastest fix is to run the host-side maintenance command:
+
+```console
+$ nemoclaw my-assistant update-openclaw
+```
+
+That command configures a user-local npm prefix inside the sandbox and upgrades OpenClaw there, so future `openclaw update` runs can use the package-manager path without requiring root access.
+
+If the sandbox was started from an updated Docker image, NemoClaw now performs that sync automatically during sandbox startup.
+
+### Local dashboard shortcut does not open the UI
+
+Use the local shortcut URL first:
+
+```console
+$ http://127.0.0.1:18788
+```
+
+NemoClaw proxies the OpenClaw UI through that port and injects the current dashboard token automatically.
+You should not need to paste the raw `18789` tokenized URL manually.
+
+Update it once through the package manager that installed it:
+
+```console
+$ npm i -g openclaw@latest
+```
+
+Or, if you use pnpm:
+
+```console
+$ pnpm add -g openclaw@latest
+```
+
+Then rerun:
+
+```console
+$ openclaw doctor
+$ openclaw update
+```
+
+Recent OpenClaw releases detect npm and pnpm installs and use the package manager automatically.
+
 ### Sandbox shows as stopped
 
 The sandbox may have been stopped or deleted.

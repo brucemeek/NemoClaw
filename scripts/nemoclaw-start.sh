@@ -14,6 +14,66 @@ set -euo pipefail
 NEMOCLAW_CMD=("$@")
 CHAT_UI_URL="${CHAT_UI_URL:-http://127.0.0.1:18789}"
 PUBLIC_PORT=18789
+NEMOCLAW_OPENCLAW_VERSION="${NEMOCLAW_OPENCLAW_VERSION:-}"
+
+ensure_user_local_openclaw_updates() {
+    local home_dir npm_prefix bin_dir path_line
+
+    home_dir="${HOME:-/sandbox}"
+    npm_prefix="${home_dir}/.npm-global"
+    bin_dir="${npm_prefix}/bin"
+    path_line='export PATH="$HOME/.npm-global/bin:$PATH"'
+
+    mkdir -p "${bin_dir}"
+    npm config set prefix "${npm_prefix}" >/dev/null 2>&1 || true
+
+    case ":${PATH}:" in
+        *":${bin_dir}:"*) ;;
+        *) export PATH="${bin_dir}:${PATH}" ;;
+    esac
+
+    touch "${home_dir}/.bashrc" "${home_dir}/.profile"
+    grep -Fqx "${path_line}" "${home_dir}/.bashrc" 2>/dev/null || printf '\n%s\n' "${path_line}" >> "${home_dir}/.bashrc"
+    grep -Fqx "${path_line}" "${home_dir}/.profile" 2>/dev/null || printf '\n%s\n' "${path_line}" >> "${home_dir}/.profile"
+}
+
+read_openclaw_version() {
+    local bin_path="${1:-}"
+
+    if [ -z "${bin_path}" ] || [ ! -x "${bin_path}" ]; then
+        return 1
+    fi
+
+    "${bin_path}" --version 2>/dev/null | sed -n 's/^OpenClaw \([^ ]*\).*/\1/p' | head -n 1
+}
+
+ensure_bundled_openclaw_version() {
+    local home_dir user_openclaw current_bin current_version target_version
+
+    target_version="${NEMOCLAW_OPENCLAW_VERSION}"
+    if [ -z "${target_version}" ]; then
+        return
+    fi
+
+    home_dir="${HOME:-/sandbox}"
+    user_openclaw="${home_dir}/.npm-global/bin/openclaw"
+    current_bin="$(command -v openclaw 2>/dev/null || true)"
+
+    if [ -x "${user_openclaw}" ]; then
+        current_version="$(read_openclaw_version "${user_openclaw}" || true)"
+    else
+        current_version="$(read_openclaw_version "${current_bin}" || true)"
+    fi
+
+    if [ "${current_version}" = "${target_version}" ] && [ -x "${user_openclaw}" ]; then
+        return
+    fi
+
+    echo "[openclaw] Syncing sandbox OpenClaw to ${target_version}..."
+    npm i -g "openclaw@${target_version}" --no-fund --no-audit --loglevel=error
+    hash -r 2>/dev/null || true
+    echo "[openclaw] Active version: $(read_openclaw_version "${user_openclaw}" || echo unknown)"
+}
 
 fix_openclaw_config() {
   python3 - <<'PYCFG'
@@ -183,6 +243,8 @@ PYAUTOPAIR
 }
 
 echo 'Setting up NemoClaw...'
+ensure_user_local_openclaw_updates
+ensure_bundled_openclaw_version
 openclaw doctor --fix > /dev/null 2>&1 || true
 write_auth_profile
 export CHAT_UI_URL PUBLIC_PORT

@@ -17,6 +17,11 @@ const {
 const registry = require("./lib/registry");
 const nim = require("./lib/nim");
 const policies = require("./lib/policies");
+const {
+  DEFAULT_OPENCLAW_TARGET,
+  normalizeOpenClawTarget,
+  updateOpenClawInSandbox,
+} = require("./lib/openclaw-update");
 
 // ── Global commands ──────────────────────────────────────────────
 
@@ -320,6 +325,45 @@ function sandboxLogs(sandboxName, follow) {
   run(`openshell sandbox logs "${sandboxName}"${followFlag}`);
 }
 
+function parseOpenClawUpdateArgs(args) {
+  let target = DEFAULT_OPENCLAW_TARGET;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--version") {
+      const value = args[index + 1];
+      if (!value) {
+        throw new Error("Missing value for --version");
+      }
+      target = normalizeOpenClawTarget(value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown update-openclaw option: ${arg}`);
+  }
+
+  return { target };
+}
+
+function sandboxUpdateOpenClaw(sandboxName, args) {
+  let parsed;
+  try {
+    parsed = parseOpenClawUpdateArgs(args);
+  } catch (err) {
+    console.error(`  ${err.message}`);
+    console.error("  Usage: nemoclaw <sandbox-name> update-openclaw [--version <latest|beta|main|semver>]");
+    process.exit(1);
+  }
+
+  console.log("");
+  console.log(`  Updating OpenClaw inside sandbox '${sandboxName}' (${parsed.target})...`);
+  console.log("");
+  updateOpenClawInSandbox(sandboxName, parsed.target);
+  console.log("");
+  console.log(`  ✓ OpenClaw updated inside sandbox '${sandboxName}'`);
+  console.log("  Reconnect to the sandbox if your current shell still resolves the old binary.");
+}
+
 async function sandboxPolicyAdd(sandboxName) {
   const allPresets = policies.listPresets();
   const applied = policies.getAppliedPresets(sandboxName);
@@ -382,6 +426,7 @@ function help() {
     nemoclaw <name> connect          Connect to a sandbox
     nemoclaw <name> status           Show sandbox status and health
     nemoclaw <name> logs [--follow]  View sandbox logs
+    nemoclaw <name> update-openclaw  Upgrade OpenClaw inside a sandbox
     nemoclaw <name> destroy          Stop NIM + delete sandbox
 
   Policy Presets:
@@ -445,12 +490,13 @@ const [cmd, ...args] = process.argv.slice(2);
       case "connect":     sandboxConnect(cmd); break;
       case "status":      sandboxStatus(cmd); break;
       case "logs":        sandboxLogs(cmd, actionArgs.includes("--follow")); break;
+      case "update-openclaw": sandboxUpdateOpenClaw(cmd, actionArgs); break;
       case "policy-add":  await sandboxPolicyAdd(cmd); break;
       case "policy-list": sandboxPolicyList(cmd); break;
       case "destroy":     sandboxDestroy(cmd); break;
       default:
         console.error(`  Unknown action: ${action}`);
-        console.error(`  Valid actions: connect, status, logs, policy-add, policy-list, destroy`);
+        console.error(`  Valid actions: connect, status, logs, update-openclaw, policy-add, policy-list, destroy`);
         process.exit(1);
     }
     return;

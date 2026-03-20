@@ -109,7 +109,7 @@ assert success, 'Rollback returned False'
 
 # Verify restoration
 restored = json.loads(config.read_text())
-assert restored.get('meta', {}).get('lastTouchedVersion') == '2026.3.11', f'Restored config wrong: {restored}'
+assert restored.get('meta', {}).get('lastTouchedVersion') == '2026.3.13', f'Restored config wrong: {restored}'
 assert 'corrupted' not in restored, 'Config still corrupted after rollback'
 print(f'Restored config: {restored}')
 " && pass "Snapshot rollback restores original config" || fail "Rollback failed"

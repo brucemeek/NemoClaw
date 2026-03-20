@@ -214,8 +214,13 @@ Run these on the host to set up, connect to, and manage sandboxes.
 |--------------------------------------|--------------------------------------------------------|
 | `nemoclaw onboard`                  | Interactive setup wizard: gateway, providers, sandbox. |
 | `nemoclaw <name> connect`            | Open an interactive shell inside the sandbox.          |
+| `nemoclaw <name> update-openclaw`    | Upgrade OpenClaw inside an existing sandbox.           |
 | `openshell term`                     | Launch the OpenShell TUI for monitoring and approvals. |
 | `nemoclaw start` / `stop` / `status` | Manage auxiliary services (Telegram bridge, tunnel).   |
+
+Docker-backed sandboxes created from the updated image automatically sync OpenClaw to the version bundled with NemoClaw during startup, before the agent and gateway come up.
+
+The local shortcut URL is `http://127.0.0.1:18788`. It now proxies the OpenClaw UI directly, so you do not need to copy a tokenized `18789` URL manually.
 
 ### Plugin commands (`openclaw nemoclaw`)
 

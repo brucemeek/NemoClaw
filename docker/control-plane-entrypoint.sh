@@ -187,12 +187,26 @@ restore_dashboard_forward() {
     return 0
   fi
 
+  pkill -f "openshell forward start 18789" >/dev/null 2>&1 || true
   openshell forward stop 18789 >/dev/null 2>&1 || true
-  if openshell forward start --background 18789 "$sandbox_name" >/dev/null 2>&1; then
-    echo "[control] Dashboard forward restored for '$sandbox_name' on http://127.0.0.1:18789/"
-  else
-    echo "[control] Failed to restore dashboard forward for '$sandbox_name'."
-  fi
+  rm -f /tmp/nemoclaw-dashboard-forward.log
+  nohup openshell forward start 18789 "$sandbox_name" >/tmp/nemoclaw-dashboard-forward.log 2>&1 &
+
+  for _ in $(seq 1 10); do
+    if python3 - <<'PY' >/dev/null 2>&1
+import urllib.request
+with urllib.request.urlopen("http://127.0.0.1:18789", timeout=2) as response:
+    response.read(1)
+PY
+    then
+      echo "[control] Dashboard forward restored for '$sandbox_name' on http://127.0.0.1:18789/"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "[control] Failed to restore dashboard forward for '$sandbox_name'."
+  tail -n 40 /tmp/nemoclaw-dashboard-forward.log 2>/dev/null || true
 }
 
 print_dashboard_url() {
@@ -214,11 +228,83 @@ print_dashboard_url() {
   if [ -n "$token" ]; then
     local url="http://127.0.0.1:18789/#token=$token"
     printf '%s\n' "$url" > "$DASHBOARD_URL_FILE"
-    chmod 600 "$DASHBOARD_URL_FILE"
+    chmod 644 "$DASHBOARD_URL_FILE"
     echo "[control] Dashboard URL: $url"
   else
     : > "$DASHBOARD_URL_FILE"
+    chmod 644 "$DASHBOARD_URL_FILE"
     echo "[control] Dashboard token is not available yet."
+  fi
+}
+
+get_sandbox_selection_config() {
+  local sandbox_name="$1"
+  local openshell_bin
+
+  openshell_bin="$(command -v openshell)"
+  ssh \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    -o GlobalKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR \
+    -o ProxyCommand="$openshell_bin ssh-proxy --gateway-name nemoclaw --name $sandbox_name" \
+    "sandbox@openshell-$sandbox_name" \
+    "python3 -c \"import os, pathlib; path = pathlib.Path(os.path.expanduser('~/.nemoclaw/config.json')); print(path.read_text() if path.exists() else '')\"" 2>/dev/null || true
+}
+
+restore_inference_config() {
+  local sandbox_name="$1"
+  local selection_json parsed provider_name endpoint_url model_name
+
+  selection_json="$(get_sandbox_selection_config "$sandbox_name")"
+  [ -n "$selection_json" ] || return 0
+
+  parsed="$({
+    SELECTION_JSON="$selection_json" python3 - <<'PY'
+import json
+import os
+
+try:
+    cfg = json.loads(os.environ.get('SELECTION_JSON', ''))
+except Exception:
+    raise SystemExit(0)
+
+provider = str(cfg.get('provider') or '').strip()
+endpoint = str(cfg.get('endpointUrl') or '').strip()
+model = str(cfg.get('model') or '').strip()
+
+if provider in {'nvidia-nim', 'vllm-local', 'ollama-local'} and endpoint and model:
+    print(provider)
+    print(endpoint)
+    print(model)
+PY
+  } 2>/dev/null)"
+
+  [ -n "$parsed" ] || return 0
+
+  mapfile -t _nemoclaw_inference_lines <<<"$parsed"
+  provider_name="${_nemoclaw_inference_lines[0]:-}"
+  endpoint_url="${_nemoclaw_inference_lines[1]:-}"
+  model_name="${_nemoclaw_inference_lines[2]:-}"
+
+  if [ -z "$provider_name" ] || [ -z "$endpoint_url" ] || [ -z "$model_name" ]; then
+    return 0
+  fi
+
+  openshell provider create \
+    --name "$provider_name" \
+    --type openai \
+    --credential OPENAI_API_KEY=dummy \
+    --config "OPENAI_BASE_URL=$endpoint_url" >/dev/null 2>&1 || \
+  openshell provider update \
+    "$provider_name" \
+    --credential OPENAI_API_KEY=dummy \
+    --config "OPENAI_BASE_URL=$endpoint_url" >/dev/null 2>&1 || true
+
+  if openshell inference set --no-verify --provider "$provider_name" --model "$model_name" >/dev/null 2>&1; then
+    echo "[control] Inference route restored: $provider_name -> $model_name @ $endpoint_url"
+  else
+    echo "[control] Failed to restore inference route for '$sandbox_name'."
   fi
 }
 
@@ -274,6 +360,55 @@ PY
   echo "[control] Shortcut URL: http://127.0.0.1:${redirect_port}/"
 }
 
+start_dashboard_bridge() {
+  local bridge_port="${NEMOCLAW_DASHBOARD_BRIDGE_PORT:-18790}"
+
+  nohup env \
+    PORT="$bridge_port" \
+    TARGET_ORIGIN="http://127.0.0.1:18789" \
+    python3 /workspace/docker/dashboard-bridge.py > /tmp/nemoclaw-dashboard-bridge.log 2>&1 &
+
+  echo "[control] Dashboard bridge: http://0.0.0.0:${bridge_port}/ -> http://127.0.0.1:18789/"
+}
+
+refresh_dashboard_state() {
+  prune_stale_registered_sandboxes
+
+  local default_sandbox
+  default_sandbox="$(get_best_sandbox)"
+  if [ -n "$default_sandbox" ]; then
+    set_default_sandbox "$default_sandbox"
+    restore_dashboard_forward "$default_sandbox"
+    restore_inference_config "$default_sandbox"
+    ensure_policy_presets "$default_sandbox"
+    print_dashboard_url "$default_sandbox"
+    return 0
+  fi
+
+  : > "$DASHBOARD_URL_FILE"
+  chmod 644 "$DASHBOARD_URL_FILE"
+  echo "[control] No registered sandbox found."
+  echo "[control] Run: docker compose -f compose.persistent.yaml exec nemoclaw-control nemoclaw onboard"
+  return 1
+}
+
+wait_for_dashboard_state() {
+  local attempts="${NEMOCLAW_DASHBOARD_RETRY_ATTEMPTS:-30}"
+  local sleep_seconds="${NEMOCLAW_DASHBOARD_RETRY_SLEEP:-2}"
+
+  for _ in $(seq 1 "$attempts"); do
+    if refresh_dashboard_state; then
+      if [ -s "$DASHBOARD_URL_FILE" ]; then
+        return 0
+      fi
+    fi
+    sleep "$sleep_seconds"
+  done
+
+  echo "[control] Dashboard URL is still not ready after waiting for OpenShell metadata."
+  return 1
+}
+
 ensure_policy_presets() {
   local sandbox_name="$1"
   local presets_csv="${NEMOCLAW_ENSURE_POLICY_PRESETS:-}"
@@ -327,7 +462,10 @@ NODE
 }
 
 persist_env_credentials
-start_dashboard_redirector
+start_dashboard_bridge
+if [ "${NEMOCLAW_INTERNAL_REDIRECTOR:-0}" = "1" ]; then
+  start_dashboard_redirector
+fi
 
 if [ "$#" -gt 0 ]; then
   exec "$@"
@@ -342,18 +480,7 @@ if [ "${NEMOCLAW_AUTO_ONBOARD:-0}" = "1" ]; then
   fi
 fi
 
-prune_stale_registered_sandboxes
-
-default_sandbox="$(get_best_sandbox)"
-if [ -n "$default_sandbox" ]; then
-  set_default_sandbox "$default_sandbox"
-  restore_dashboard_forward "$default_sandbox"
-  ensure_policy_presets "$default_sandbox"
-  print_dashboard_url "$default_sandbox"
-else
-  echo "[control] No registered sandbox found."
-  echo "[control] Run: docker compose -f compose.persistent.yaml exec nemoclaw-control nemoclaw onboard"
-fi
+wait_for_dashboard_state || true
 
 echo "[control] NemoClaw control plane is ready."
 echo "[control] State is bound to ${NEMOCLAW_HOST_HOME:-the configured WSL home} so existing NemoClaw/OpenClaw metadata is reused."

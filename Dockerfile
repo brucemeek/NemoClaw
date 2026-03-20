@@ -3,6 +3,7 @@
 FROM node:22-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV NEMOCLAW_OPENCLAW_VERSION=2026.3.13
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
@@ -16,7 +17,7 @@ RUN groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbo
     && chown -R sandbox:sandbox /sandbox
 
 # Install OpenClaw CLI
-RUN npm install -g openclaw@2026.3.11
+RUN npm install -g openclaw@2026.3.13
 
 # Install PyYAML for blueprint runner
 RUN pip3 install --break-system-packages pyyaml

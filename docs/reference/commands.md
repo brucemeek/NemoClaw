@@ -169,6 +169,19 @@ Use `--follow` to stream output in real time.
 $ nemoclaw my-assistant logs [--follow]
 ```
 
+### `nemoclaw <name> update-openclaw`
+
+Upgrade OpenClaw inside an existing sandbox.
+This command configures a user-local npm prefix inside the sandbox, installs the requested OpenClaw version or tag, reruns `openclaw doctor`, and reinstalls the NemoClaw plugin.
+
+```console
+$ nemoclaw my-assistant update-openclaw [--version <latest|beta|main|semver>]
+```
+
+Use this for sandboxes that were created before package-managed OpenClaw self-updates were wired up, or when you want to pin a specific OpenClaw release inside a sandbox.
+
+For Docker-backed sandboxes created from the updated NemoClaw image, this manual step is usually unnecessary because startup automatically syncs OpenClaw to the bundled version before the agent launches.
+
 ### `nemoclaw <name> destroy`
 
 Stop the NIM container and delete the sandbox.
